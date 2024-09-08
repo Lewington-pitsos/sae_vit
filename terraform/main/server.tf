@@ -26,7 +26,7 @@ resource "aws_security_group" "allow_ssh" {
   }
 }
 
-resource "aws_instance" "sache" {
+resource "aws_instance" "sae_vit" {
   ami           = "ami-0197c13a4f68c9360"
   instance_type = var.instance_type
   key_name      = aws_key_pair.deployer.key_name
@@ -34,7 +34,7 @@ resource "aws_instance" "sache" {
   security_groups = [aws_security_group.allow_ssh.name]
 
   tags = {
-    Name = "sache"
+    Name = "sae_vit"
   }
 
   root_block_device {

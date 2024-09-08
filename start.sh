@@ -9,7 +9,6 @@ fi
 
 TAG_VALUE=$1
 
-# Fetch the IP address of the EC2 instance tagged with 'Name' 'sache'
 INSTANCE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$TAG_VALUE" --query "Reservations[*].Instances[*].PublicIpAddress" --output text)
 
 
@@ -36,12 +35,12 @@ ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'chmod 600 ~/.ssh/id_rsa'
 echo "Changed permissions for id_rsa on the EC2 instance."
 
 ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'ssh-keyscan -H github.com >> ~/.ssh/known_hosts'
-ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'git clone git@github.com:lewington-pitsos/sache'
+ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'git clone git@github.com:lewington-pitsos/sae_vit'
 
-scp -i ~/.ssh/id_sache -o StrictHostKeyChecking=no .credentials.json ubuntu@$INSTANCE_IP:~/sache/
+scp -i ~/.ssh/id_sache -o StrictHostKeyChecking=no .credentials.json ubuntu@$INSTANCE_IP:~/sae_vit/
 echo "Copied credentials over"
 
 sed -i '' "/^Host aws-sache$/,/^$/ s/HostName .*/HostName $INSTANCE_IP/" /Users/plato/.ssh/config
 
 
-ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'cd ~/sache && pip install boto3 wandb && python scripts/download_logs.py'
+ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'cd ~/sae_vit && pip install boto3 wandb && python scripts/download_logs.py'
