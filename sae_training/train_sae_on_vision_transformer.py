@@ -179,19 +179,6 @@ def train_sae_on_vision_transformer(
             checkpoint_thresholds.pop(0)
             if len(checkpoint_thresholds) == 0:
                 n_checkpoints = 0
-            if cfg.log_to_wandb:
-                model_artifact = wandb.Artifact(
-                    f"{sparse_autoencoder.get_name()}", type="model", metadata=dict(cfg.__dict__)
-                )
-                model_artifact.add_file(path)
-                wandb.log_artifact(model_artifact)
-                
-                sparsity_artifact = wandb.Artifact(
-                    f"{sparse_autoencoder.get_name()}_log_feature_sparsity", type="log_feature_sparsity", metadata=dict(cfg.__dict__)
-                )
-                sparsity_artifact.add_file(log_feature_sparsity_path)
-                wandb.log_artifact(sparsity_artifact)
-                
             
         n_training_steps += 1
         

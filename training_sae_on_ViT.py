@@ -77,7 +77,7 @@ cfg = ViTSAERunnerConfig(
     # Misc
     device = "cuda",
     seed = 42,
-    n_checkpoints = 0,
+    n_checkpoints = 20,
     checkpoint_path = "checkpoints",
     dtype = torch.float32,
     )
