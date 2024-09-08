@@ -1,21 +1,11 @@
 #!/bin/bash
 
 
-# Check if the tag value is provided
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <tag-value>"
-  exit 1
-fi
-
-TAG_VALUE=$1
-
-INSTANCE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$TAG_VALUE" --query "Reservations[*].Instances[*].PublicIpAddress" --output text)
-
-
+INSTANCE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=sae_vit" --query "Reservations[*].Instances[*].PublicIpAddress" --output text)
 
 # Check if the IP address was fetched successfully
 if [ -z "$INSTANCE_IP" ]; then
-  echo "No instance found with the tag 'Name=sache' or instance does not have a public IP address."
+  echo "No instance found with the tag 'Name=sae_vit' or instance does not have a public IP address."
   exit 1
 fi
 
@@ -40,7 +30,4 @@ ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'git clone git@github.com:lewington-p
 scp -i ~/.ssh/id_sache -o StrictHostKeyChecking=no .credentials.json ubuntu@$INSTANCE_IP:~/sae_vit/
 echo "Copied credentials over"
 
-sed -i '' "/^Host aws-sache$/,/^$/ s/HostName .*/HostName $INSTANCE_IP/" /Users/plato/.ssh/config
-
-
-ssh -i ~/.ssh/id_sache ubuntu@$INSTANCE_IP 'cd ~/sae_vit && pip install boto3 wandb && python scripts/download_logs.py'
+sed -i '' "/^Host aws-saevit$/,/^$/ s/HostName .*/HostName $INSTANCE_IP/" /Users/plato/.ssh/config
