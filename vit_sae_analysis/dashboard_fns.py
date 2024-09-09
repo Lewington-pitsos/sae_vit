@@ -152,19 +152,25 @@ def print_memory():
     else:
         print("CUDA is not available.")
         
-def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key):
+def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=4):
     assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
     number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
     for neuron in trange(number_of_neurons):
         neuron_dead = True
+        to_save = []
         for max_activating_image in range(number_of_max_activating_examples):
-            if max_activating_image_values[neuron, max_activating_image].item()>0:
+            if max_activating_image_values[neuron, max_activating_image].item()>threshold:
                 if neuron_dead:
                     if not os.path.exists(f"{directory}/{neuron}"):
                         os.makedirs(f"{directory}/{neuron}")
                     neuron_dead = False
                 image = dataset[int(max_activating_image_indices[neuron, max_activating_image].item())][image_key]
+                to_save.append(1)
                 image.save(f"{directory}/{neuron}/{max_activating_image}_{int(max_activating_image_indices[neuron, max_activating_image].item())}_{max_activating_image_values[neuron, max_activating_image].item():.4g}.png", "PNG")
+
+        if len(to_save)<min_examples and os.path.exists(f"{directory}/{neuron}"):
+                shutil.rmtree(f"{directory}/{neuron}")
+
 
 def get_new_top_k(first_values, first_indices, second_values, second_indices, k):
     total_values = torch.cat([first_values, second_values], dim = 1)
@@ -182,6 +188,9 @@ def get_feature_data(
     max_number_of_images_per_iteration: int = 16_384,
     seed: int = 1,
     load_pretrained = False,
+    threshold = 0.0,
+    n_classes = 1000,
+    dataset=None
 ):
     '''
     Gets data that will be used to create the sequences in the HTML visualisation.
@@ -203,7 +212,8 @@ def get_feature_data(
     torch.cuda.empty_cache()
     sparse_autoencoder.eval()
     
-    dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
+    if dataset is None:
+        dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
     
     if sparse_autoencoder.cfg.dataset_path=="cifar100": # Need to put this in the cfg
         image_key = 'img'
@@ -266,4 +276,11 @@ def get_feature_data(
         torch.save(sae_mean_acts, f'{directory}/sae_mean_acts.pt')
         # Should also save label information tensor here!!!
         
-    save_highest_activating_images(max_activating_image_indices[:1000,:10], max_activating_image_values[:1000,:10], directory, dataset, image_key)
+    save_highest_activating_images(
+        max_activating_image_indices[:n_classes,:10], 
+        max_activating_image_values[:n_classes,:10], 
+        directory, 
+        dataset, 
+        image_key, 
+        threshold=threshold
+    )
