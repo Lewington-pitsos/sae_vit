@@ -189,3 +189,5 @@ feature_dashboards/
 **/*.tfstate*
 .credentials.json
 cruft
+
+pad.ipynb
