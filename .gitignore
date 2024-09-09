@@ -188,3 +188,4 @@ feature_dashboards/
 **/.terraform*
 **/*.tfstate*
 .credentials.json
+cruft
