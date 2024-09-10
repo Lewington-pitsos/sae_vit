@@ -155,6 +155,7 @@ def print_memory():
 def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=4):
     assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
     number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
+    transform = transforms.ToPILImage()
     for neuron in trange(number_of_neurons):
         neuron_dead = True
         to_save = []
@@ -166,6 +167,8 @@ def save_highest_activating_images(max_activating_image_indices, max_activating_
                     neuron_dead = False
                 image = dataset[int(max_activating_image_indices[neuron, max_activating_image].item())][image_key]
                 to_save.append(1)
+                if isinstance(image, torch.Tensor):
+                    image = transform(image[0].transpose(0,2).transpose(1, 2))
                 image.save(f"{directory}/{neuron}/{max_activating_image}_{int(max_activating_image_indices[neuron, max_activating_image].item())}_{max_activating_image_values[neuron, max_activating_image].item():.4g}.png", "PNG")
 
         if len(to_save)<min_examples and os.path.exists(f"{directory}/{neuron}"):
@@ -190,7 +193,9 @@ def get_feature_data(
     load_pretrained = False,
     threshold = 0.0,
     n_classes = 1000,
-    dataset=None
+    dataset=None,
+    directory = "dashboard",
+    image_key = 'image'
 ):
     '''
     Gets data that will be used to create the sequences in the HTML visualisation.
@@ -210,23 +215,16 @@ def get_feature_data(
     Returns object of class FeatureData (see that class's docstring for more info).
     '''
     torch.cuda.empty_cache()
-    sparse_autoencoder.eval()
     
     if dataset is None:
         dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
-    
-    if sparse_autoencoder.cfg.dataset_path=="cifar100": # Need to put this in the cfg
-        image_key = 'img'
-    else:
-        image_key = 'image'
-        
-    dataset = dataset.shuffle(seed = seed)
-    directory = "dashboard"
+        dataset = dataset.shuffle(seed = seed)
     
     if load_pretrained:
         max_activating_image_indices = torch.load(f'{directory}/max_activating_image_indices.pt')
         max_activating_image_values = torch.load(f'{directory}/max_activating_image_values.pt')
     else:
+        sparse_autoencoder.eval()
         max_activating_image_indices = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
         max_activating_image_values = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
         sae_sparsity = torch.zeros([sparse_autoencoder.cfg.d_sae]).to(sparse_autoencoder.cfg.device)
@@ -266,12 +264,15 @@ def get_feature_data(
             os.makedirs(directory)
             
         # compute the label tensor
-        max_activating_image_label_indices = torch.tensor([dataset[int(index)]['label'] for index in tqdm(max_activating_image_indices.flatten(), desc = "getting image labels")])
+        
+        # max_activating_image_label_indices = torch.tensor([dataset[int(index)]['label'] for index in tqdm(max_activating_image_indices.flatten(), desc = "getting image labels")])
         # Reshape to original dimensions
-        max_activating_image_label_indices = max_activating_image_label_indices.view(max_activating_image_indices.shape)
+        # max_activating_image_label_indices = max_activating_image_label_indices.view(max_activating_image_indices.shape)
+        # torch.save(max_activating_image_label_indices, f'{directory}/max_activating_image_label_indices.pt')
+        
+        
         torch.save(max_activating_image_indices, f'{directory}/max_activating_image_indices.pt')
         torch.save(max_activating_image_values, f'{directory}/max_activating_image_values.pt')
-        torch.save(max_activating_image_label_indices, f'{directory}/max_activating_image_label_indices.pt')
         torch.save(sae_sparsity, f'{directory}/sae_sparsity.pt')
         torch.save(sae_mean_acts, f'{directory}/sae_mean_acts.pt')
         # Should also save label information tensor here!!!
