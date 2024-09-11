@@ -95,3 +95,5 @@ get_feature_data(
 )
 
 print("*****Done*****")
+
+# 388 feature is chips
