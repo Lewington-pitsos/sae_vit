@@ -14,6 +14,25 @@ dataset = ThumbnailDataset(files, keys=['thumbnailStandard'], device='cuda')
 
 print('n samples in dataset', len(dataset))
 
+# thumbnails
+# 30337 - graffiti
+# 58040 - jeans 
+# 61332 - skateboarding
+# 60705 - graffiti
+# 33318 - tape recorder
+# 3240 - ships
+# 56264 - ships
+# 44550 - boxing 
+# 43231 - tape recorders (nice) 
+# 53416 - basketball
+
+# 47588 - graffiti
+# 56264 - ships
+# 10564 - fish in the process of being fished (RIP)
+# 
+# 19172 - manly men, 
+
+
 if load_pretrained:
     get_feature_data(
         None,
@@ -24,7 +43,8 @@ if load_pretrained:
         number_of_max_activating_images=20,
         dataset=dataset,
         load_pretrained=True,
-        neuron_idx=torch.tensor([ 1529,  9160,  3408, 10862,  8499, 10338,  4187,  1329,  5924,  9555]),
+        # directory='cruft/cifar_dashboard',
+        neuron_idx=torch.tensor([60705, 47588, 56264, 10564, 23408, 58040,  3240, 33318, 24765, 47293]),
         image_key='thumbnailStandard'
     )
 else:
