@@ -18,12 +18,13 @@ if load_pretrained:
     get_feature_data(
         None,
         None,
-        threshold=0.04,
+        threshold=0, 
         max_number_of_images_per_iteration=4096,
         number_of_images=524_288,
         number_of_max_activating_images=20,
         dataset=dataset,
         load_pretrained=True,
+        neuron_idx=torch.tensor([ 1529,  9160,  3408, 10862,  8499, 10338,  4187,  1329,  5924,  9555]),
         image_key='thumbnailStandard'
     )
 else:
@@ -38,7 +39,7 @@ else:
         sparse_autoencoder,
         model,
         threshold=0.04,
-        max_number_of_images_per_iteration=4096,
+        max_number_of_images_per_iteration=8192,
         number_of_images=524_288,
         number_of_max_activating_images=20,
         dataset=dataset,

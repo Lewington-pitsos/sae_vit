@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from datasets import load_dataset
-from tqdm import trange
+from tqdm import trange, tqdm
 from eindex import eindex
 from IPython.display import HTML, display
 from jaxtyping import Float, Int
@@ -152,11 +152,11 @@ def print_memory():
     else:
         print("CUDA is not available.")
         
-def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=4):
+def save_highest_activating_images(neuron_idx, max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=4):
     assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
     number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
     transform = transforms.ToPILImage()
-    for neuron in trange(number_of_neurons):
+    for neuron in tqdm(neuron_idx.tolist()):
         neuron_dead = True
         to_save = []
         for max_activating_image in range(number_of_max_activating_examples):
@@ -192,7 +192,7 @@ def get_feature_data(
     seed: int = 1,
     load_pretrained = False,
     threshold = 0.0,
-    n_classes = 1000,
+    neuron_idx = torch.tensor(list(range(1000))),
     dataset=None,
     directory = "dashboard",
     image_key = 'image'
@@ -215,6 +215,11 @@ def get_feature_data(
     Returns object of class FeatureData (see that class's docstring for more info).
     '''
     torch.cuda.empty_cache()
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    if not os.path.exists(directory + '/raw'):
+        os.makedirs(directory + '/raw')
     
     if dataset is None:
         dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
@@ -244,6 +249,8 @@ def get_feature_data(
             sae_mean_acts += sae_activations.sum(dim = 1)
             sae_sparsity += (sae_activations>0).sum(dim = 1)
             
+            torch.save(sae_activations, f'{directory}/raw/sae_activations_{number_of_images_processed}.pt')
+
             # Convert the images list to a torch tensor
             values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 1) # sizes [sae_idx, images] is the size of this matrix correct?
             indices += number_of_images_processed
@@ -254,15 +261,10 @@ def get_feature_data(
             Need to implement calculations for covariance matrix but it will need an additional 16 GB of memory just to store it (32 if I am batching I think...). Could it be added and stored on the CPU? Probs not...
             """
             number_of_images_processed += max_number_of_images_per_iteration
-        
         sae_mean_acts /= sae_sparsity
         sae_sparsity /= number_of_images_processed
         
         # Check if the directory exists
-        if not os.path.exists(directory):
-            # Create the directory if it does not exist
-            os.makedirs(directory)
-            
         # compute the label tensor
         
         # max_activating_image_label_indices = torch.tensor([dataset[int(index)]['label'] for index in tqdm(max_activating_image_indices.flatten(), desc = "getting image labels")])
@@ -270,16 +272,16 @@ def get_feature_data(
         # max_activating_image_label_indices = max_activating_image_label_indices.view(max_activating_image_indices.shape)
         # torch.save(max_activating_image_label_indices, f'{directory}/max_activating_image_label_indices.pt')
         
-        
         torch.save(max_activating_image_indices, f'{directory}/max_activating_image_indices.pt')
         torch.save(max_activating_image_values, f'{directory}/max_activating_image_values.pt')
         torch.save(sae_sparsity, f'{directory}/sae_sparsity.pt')
         torch.save(sae_mean_acts, f'{directory}/sae_mean_acts.pt')
         # Should also save label information tensor here!!!
-        
+    
     save_highest_activating_images(
-        max_activating_image_indices[:n_classes,:10], 
-        max_activating_image_values[:n_classes,:10], 
+        neuron_idx,
+        max_activating_image_indices[:, :10], 
+        max_activating_image_values[:, :10], 
         directory, 
         dataset, 
         image_key, 

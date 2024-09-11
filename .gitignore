@@ -189,3 +189,4 @@ feature_dashboards/
 **/*.tfstate*
 .credentials.json
 cruft
+dashboard_thumbs
