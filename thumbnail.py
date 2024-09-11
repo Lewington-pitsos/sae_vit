@@ -1,9 +1,10 @@
 import os
+
 import torch
 
-from vit_sae_analysis.dashboard_fns import get_feature_data
-from sae_training.utils import ViTSparseAutoencoderSessionloader
 from loader import ThumbnailDataset
+from sae_training.utils import ViTSparseAutoencoderSessionloader
+from vit_sae_analysis.dashboard_fns import get_feature_data
 
 load_pretrained = True
 
@@ -14,7 +15,16 @@ dataset = ThumbnailDataset(files, keys=['thumbnailStandard'], device='cuda')
 
 print('n samples in dataset', len(dataset))
 
-# thumbnails
+# https://en.wikipedia.org/wiki/List_of_most-subscribed_YouTube_channels
+# mrbeast
+# tseries
+# Cocomelon
+# SET India
+# Kids Diana Show
+# Vlad and Niki
+# Like Nastya
+
+# thumbnails @ s3://vit-sae/yt-524_288/
 # 30337 - graffiti
 # 58040 - jeans 
 # 61332 - skateboarding
