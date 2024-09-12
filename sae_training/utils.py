@@ -37,6 +37,14 @@ class ViTSparseAutoencoderSessionloader():
             
         return model, sparse_autoencoder, activations_loader
     
+
+    def load_essential_session(self):
+        model = self.get_model(self.cfg.model_name)
+        model.to(self.cfg.device) # May need to include a .to() method.
+            
+        return model
+    
+
     @classmethod
     def load_session_from_pretrained(cls, path: str) -> Tuple[HookedTransformer, SparseAutoencoder, ViTActivationsStore]:
         '''
@@ -54,6 +62,25 @@ class ViTSparseAutoencoderSessionloader():
         sparse_autoencoder = SparseAutoencoder.load_from_pretrained(path)
         
         return model, sparse_autoencoder, activations_loader
+    
+    @classmethod
+    def load_essential_from_pretrained(cls, path: str) -> Tuple[HookedTransformer, SparseAutoencoder, ViTActivationsStore]:
+        '''
+        Loads a session for analysing a pretrained sparse autoencoder.
+        '''
+        if torch.backends.mps.is_available():
+            cfg = torch.load(path, map_location="mps")["cfg"]
+            cfg.device = "mps"
+        elif torch.cuda.is_available():
+            cfg = torch.load(path, map_location="cuda")["cfg"]
+        else:
+            cfg = torch.load(path, map_location="cpu")["cfg"]
+
+        model = cls(cfg).load_essential_session()
+        sparse_autoencoder = SparseAutoencoder.load_from_pretrained(path)
+        
+        return model, sparse_autoencoder
+    
     
     def get_model(self, model_name: str):
         '''

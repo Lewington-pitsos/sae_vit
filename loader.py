@@ -1,118 +1,187 @@
-import h5py
-from torch.utils.data import Dataset
+import json
 import os
 import torch
+from torch.utils.data import Dataset
+from collections import defaultdict
+
+# add device
 
 class ThumbnailDataset(Dataset):
-    def __init__(self, file_paths, device, keys=None):
-        self.file_paths = file_paths  # List of HDF5 file paths
-        self.index_map = []
-        self.start_end = {}
-        for file_idx, file_path in enumerate(self.file_paths):
-            initial_idx = len(self.index_map)
-            with h5py.File(file_path, 'r') as hf:
-                keys = list(hf.keys())
-                # Assuming all datasets have the same length for simplicity
-                num_samples = len(hf[keys[0]])
-                for i in range(num_samples):
-                    self.index_map.append((file_idx, i))
+    def __init__(self, path, device='cpu', data_types=['numeric', 'string', 'thumbnail']):
+        assert len(data_types) > 0, "Data types must be specified"
+        assert all([data_type in ['numeric', 'string', 'thumbnail'] for data_type in data_types]), "Data types must be one of ['numeric', 'string', 'thumbnail']"
+        assert os.path.exists(path), f"Path {path} does not exist"
 
-            self.start_end[file_idx] = (initial_idx, len(self.index_map))
-                
+        self.parent_dir = path  
+        config_path = os.path.join(self.parent_dir, 'config.json')
+        self.data_types = data_types
         self.device = device
-        self.keys = keys
-        
 
-    def all_file_indices(self):
-        return list(range(len(self.file_paths)))
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+
+        self.files = defaultdict(list)
+        
+        data_files = os.listdir(self.parent_dir)
+        for file in data_files:
+            for file_type in self.data_types:
+                if file_type in file:
+                    self.files[file_type].append(file)
+
+        n_files = 0
+        for k, v in self.files.items():
+            if n_files == 0:
+                n_files = len(v)
+            else:
+                assert len(v) == n_files, f"Number of {k} files, {len(v)} is not equal to number of a different file type {n_files}"
+
+        if n_files == 0:
+            raise ValueError("No files found for any of the data types", self.data_types, data_files)
+
+        self.index_map = []
+        self.lengths = []
+
+        easy_data_type = self._get_easy_data_type()
+        for i in range(n_files):
+            length = self._file_len(i, easy_data_type)
+            self.index_map += [i for _ in range(length)]
+            self.lengths.append(length)
+
+        
+    def _file_len(self, file_idx, data_type):
+        data = self._load_file(file_idx, data_type)
+
+        if data_type == 'string':
+            for v in data.values():
+                return len(v)
+
+        return data.shape[0]
+
+    def _load_file(self, file_idx, data_type):
+        file_path = os.path.join(self.parent_dir, self.files[data_type][file_idx])
+
+        if data_type == 'string':
+            with open(file_path, 'r') as f:
+                return json.load(f)
+
+        return torch.load(file_path, map_location=self.device)
+    
+
+    def _numeric_to_dict(self, data):
+        data_dict = {}
+        for i, key in enumerate(self.config['numeric_keys']):
+            data_dict[key] = data[:, i]
+
+        return data_dict
+
+    def _load_data_dict(self, file_idx, data_type):
+        data = self._load_file(file_idx, data_type)
+
+        if data_type == 'string':
+            return data
+
+        if data_type == 'thumbnail':
+            return {'thumbnail': data}
+
+        if data_type == 'numeric':
+            return self._numeric_to_dict(data)
+
+    def _get_easy_data_type(self):
+        if 'numeric' in self.data_types:
+            return 'numeric'
+        elif 'string' in self.data_types:
+            return 'string'
+
+        return 'thumbnail'
+        
 
     def __len__(self):
         return len(self.index_map)
-
-    def _get_item(self, idx, keys):
-        return self._get_file_slice(idx, idx + 1, keys)
-
-    def _get_file_slice(self, absolute_start, absolute_end, wanted_keys=None):
-        file_idx, _ = self.index_map[absolute_start]
-        file_start, _ = self.start_end[file_idx]
-
-
-        relative_start = absolute_start - file_start
-        relative_end = absolute_end - file_start
-        file_path = self.file_paths[file_idx]
-
-        with h5py.File(file_path, 'r') as hf:
-            keys = list(hf.keys())
-            if wanted_keys is not None:
-                keys = [key for key in keys if key in wanted_keys]
-            data = {
-                'thumbnailStandard': torch.tensor(hf['thumbnailStandard'][relative_start:relative_end], device=self.device),
-                'likeCount': torch.tensor(hf['likeCount'][relative_start:relative_end], device=self.device) if 'likeCount' in keys else None,
-                'viewCount': torch.tensor(hf['viewCount'][relative_start:relative_end], device=self.device) if 'viewCount' in keys else None,
-                'commentCount': torch.tensor(hf['commentCount'][relative_start:relative_end], device=self.device) if 'commentCount' in keys else None,
-                'title': list(hf['title'][relative_start:relative_end]) if 'title' in keys else None
-            }
-        return data
-
-    def _get_whole_file(self, file_idx, keys):
-        start, end = self.start_end[file_idx]
-        return self._get_file_slice(start, end, keys)
-
-    def _return_multi_file_slice(self, start, end, keys):
-        all_indices = self.index_map[start:end]
-
-        whole_files = list()
-
-        last_file_idx = None
-        first_file_idx = None
-        for file_idx, _ in all_indices:
-            if file_idx not in whole_files:
-                whole_files.append(file_idx)
-            last_file_idx = file_idx
-            
-            if first_file_idx is None:
-                first_file_idx = file_idx
-
-        if first_file_idx == last_file_idx:
-            return self._get_file_slice(start, end, keys)
-
-        whole_files = [idx for idx in whole_files if idx != first_file_idx and idx != last_file_idx]
-
-        sample_lists = []
     
-        _, end_of_first_file = self.start_end[first_file_idx]
-        first_file_samples = self._get_file_slice(start, end_of_first_file, keys)
-        sample_lists.append(first_file_samples)
+    def _get_file_data(self, file_idx):
+        data = {}
+        for data_type in self.data_types:
+            data_dict = self._load_data_dict(file_idx, data_type)
 
-        for file_idx in whole_files:
-            sample_lists.append(self._get_whole_file(file_idx, keys))
-
-        start_of_last_file, _ = self.start_end[last_file_idx]
-        last_file_samples = self._get_file_slice(start_of_last_file, end, keys)
-        sample_lists.append(last_file_samples)
-        
-        data = None
-        for samples in sample_lists:
-            if data is None:
-                data = samples
+            if data_type == 'string':
+                for k, v in data_dict.items():
+                    data[k] = v
             else:
-                for key in data.keys():
-                    if key == 'title':
-                        data[key] = data[key] + samples[key]
-                    else:    
-                        data[key] = torch.cat((data[key], samples[key]), 0)
+                for k, v in data_dict.items():
+                    data[k] = v
 
         return data
 
+    def _get_slice_efficient(self, idx):
+        start, stop, step = idx.start, idx.stop, idx.step
+        if start is None:
+            start = 0
+        if stop is None:
+            stop = len(self)
+
+        if step != 1 and step is not None:
+            raise ValueError("Step must be 1 or None, got", step)
+
+        sample_idx = 0
+        file_idx = 0
+        while sample_idx + self.lengths[file_idx] < start:
+            sample_idx += self.lengths[file_idx]
+            file_idx += 1
+        
+        all_data = {}
+        while sample_idx < stop:
+            file_data = self._get_file_data(file_idx)
+
+            if sample_idx < start or sample_idx + self.lengths[file_idx] >= stop:
+                if sample_idx < start:
+                    relative_start = start - sample_idx
+                else:
+                    relative_start = 0
+
+                if sample_idx + self.lengths[file_idx] >= stop:
+                    diff = sample_idx + self.lengths[file_idx] - stop
+                    relative_end = self.lengths[file_idx] - diff
+                else:
+                    relative_end = self.lengths[file_idx]
+
+                for k, v in file_data.items():
+                    file_data[k] = v[relative_start:relative_end]
+
+            for k, v in file_data.items():
+                if k not in all_data:
+                    if isinstance(v, list):
+                        all_data[k] = []
+                    else:
+                        all_data[k] = torch.empty((0, *v.shape[1:]), dtype=v.dtype, device=v.device)
+
+                if isinstance(v, list):
+                    all_data[k] += v
+                else:
+                    all_data[k] = torch.cat((all_data[k], v), dim=0)
+
+            sample_idx += self.lengths[file_idx]
+            file_idx += 1
+
+            if file_idx >= len(self.lengths):
+                break
+
+        return all_data
+
+    def _get_single_item(self, idx):
+        file_idx = self.index_map[idx]
+        data = {}
+
+        item_offset = idx - sum(self.lengths[:file_idx])
+
+        file_data = self._get_file_data(file_idx)
+        for k, v in file_data.items():
+            data[k] = v[item_offset]
+
+        return data
 
     def __getitem__(self, idx):
+
         if isinstance(idx, slice):
-            start = idx.start if idx.start is not None else 0
-            stop = idx.stop if idx.stop is not None else len(self.index_map)
+            return self._get_slice_efficient(idx)
 
-            if idx.step is not None:
-                raise ValueError("Slicing with step is not supported", idx)
-
-            return self._return_multi_file_slice(start, stop, self.keys)
-
-        return self._get_item(idx, self.keys)
+        return self._get_single_item(idx)

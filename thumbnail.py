@@ -1,28 +1,10 @@
 import os
-
 import torch
 
 from loader import ThumbnailDataset
 from sae_training.utils import ViTSparseAutoencoderSessionloader
 from vit_sae_analysis.dashboard_fns import get_feature_data
 
-load_pretrained = True
-
-print('loading data')
-parent_dir = 'cruft/cruft/video/'
-files = [parent_dir + f for f in os.listdir(parent_dir) if f.endswith('.h5')]
-dataset = ThumbnailDataset(files, keys=['thumbnailStandard'], device='cuda')
-
-print('n samples in dataset', len(dataset))
-
-# https://en.wikipedia.org/wiki/List_of_most-subscribed_YouTube_channels
-# mrbeast
-# tseries
-# Cocomelon
-# SET India
-# Kids Diana Show
-# Vlad and Niki
-# Like Nastya
 
 # thumbnails @ s3://vit-sae/yt-524_288/
 # 30337 - graffiti
@@ -42,36 +24,51 @@ print('n samples in dataset', len(dataset))
 # 
 # 19172 - manly men, 
 
+name = 'mrbeast'
+print('loading data')
+path = os.path.join('channel', name)
+dataset = ThumbnailDataset(path, data_types=['thumbnail'], device='cuda')
 
+print('n samples in dataset', len(dataset))
+
+image_key = 'thumbnail'
+load_pretrained = True
+threshold = 0.03
+batch_size=256
+directory=f'cruft/{name}_dash'
+
+features = torch.tensor([32979, 25709, 58510, 14073, 30299, 47643, 13881,  8486, 21690, 52368])
 if load_pretrained:
     get_feature_data(
         None,
         None,
-        threshold=0, 
-        max_number_of_images_per_iteration=4096,
-        number_of_images=524_288,
+        threshold=threshold, 
+        max_number_of_images_per_iteration=batch_size,
+        number_of_images=814,
         number_of_max_activating_images=20,
+        directory=directory,
+        neuron_idx=features,
         dataset=dataset,
+        image_key=image_key,
         load_pretrained=True,
-        # directory='cruft/cifar_dashboard',
-        neuron_idx=torch.tensor([60705, 47588, 56264, 10564, 23408, 58040,  3240, 33318, 24765, 47293]),
-        image_key='thumbnailStandard'
     )
 else:
     print('creating new data')
-    filename = 'checkpoints/4rfb746w/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt'
+    filename = 'cruft/clip-vit-large-patch14_-2_resid_65536.pt'
     pretrain = torch.load(filename)
     cfg = pretrain['cfg']
 
-    model, sparse_autoencoder, activations_loader = ViTSparseAutoencoderSessionloader.load_session_from_pretrained(filename)
+    model, sparse_autoencoder = ViTSparseAutoencoderSessionloader.load_essential_from_pretrained(filename)
 
     get_feature_data(
         sparse_autoencoder,
         model,
-        threshold=0.04,
-        max_number_of_images_per_iteration=8192,
-        number_of_images=524_288,
+        threshold=threshold,
+        max_number_of_images_per_iteration=batch_size,
+        number_of_images=812,
         number_of_max_activating_images=20,
+        directory=directory,
+        neuron_idx=features,
         dataset=dataset,
-        image_key='thumbnailStandard'
+        image_key=image_key
     )

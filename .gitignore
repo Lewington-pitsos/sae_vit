@@ -179,6 +179,7 @@ web_app/
 saeexplorer/
 
 *.DS_Store
+channel
 
 #random image
 PXL_20240301_032537263.jpg

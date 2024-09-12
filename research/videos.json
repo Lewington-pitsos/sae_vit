@@ -1,0 +1,44 @@
+{
+    "mrbeast": {
+        "32979": {
+            "interpretation": "unknown",
+            "correlation": 0.4732
+        },
+        "25709": {
+            "interpretation": "unknown",
+            "correlation": 0.3365
+        },
+        "58510": {
+            "interpretation": "children",
+            "correlation": 0.2559
+        },
+        "14073": {
+            "interpretation": "unknown",
+            "correlation": 0.2518
+        },
+        "30299": {
+            "interpretation": "spooky",
+            "correlation": 0.2320
+        },
+        "47643": {
+            "interpretation": "repetition?",
+            "correlation": 0.2251
+        },
+        "13881": {
+            "interpretation": "unknown",
+            "correlation": 0.2211
+        },
+        "8486": {
+            "interpretation": "no images",
+            "correlation": 0.1946
+        },
+        "21690": {
+            "interpretation": "no images",
+            "correlation": 0.1946
+        },
+        "52368": {
+            "interpretation": "children",
+            "correlation": 0.1946
+        }
+    }
+}

@@ -168,7 +168,7 @@ def save_highest_activating_images(neuron_idx, max_activating_image_indices, max
                 image = dataset[int(max_activating_image_indices[neuron, max_activating_image].item())][image_key]
                 to_save.append(1)
                 if isinstance(image, torch.Tensor):
-                    image = transform(image[0].transpose(0,2).transpose(1, 2))
+                    image = transform(image.transpose(0,2).transpose(1, 2))
                 image.save(f"{directory}/{neuron}/{max_activating_image}_{int(max_activating_image_indices[neuron, max_activating_image].item())}_{max_activating_image_values[neuron, max_activating_image].item():.4g}.png", "PNG")
 
         if len(to_save)<min_examples and os.path.exists(f"{directory}/{neuron}"):
@@ -192,7 +192,7 @@ def get_feature_data(
     seed: int = 1,
     load_pretrained = False,
     threshold = 0.0,
-    neuron_idx = torch.tensor(list(range(1000))),
+    neuron_idx = torch.tensor(list(range(250))),
     dataset=None,
     directory = "dashboard",
     image_key = 'image'
@@ -241,6 +241,10 @@ def get_feature_data(
                 images = dataset[number_of_images_processed:number_of_images_processed + max_number_of_images_per_iteration][image_key]
             except StopIteration:
                 print('All of the images in the dataset have been processed!')
+                break
+
+            if images.numel() == 0:
+                print('breaking as no more images are left')
                 break
             
             model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
