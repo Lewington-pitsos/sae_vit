@@ -122,6 +122,17 @@ class ThumbnailDataset(Dataset):
         if step != 1 and step is not None:
             raise ValueError("Step must be 1 or None, got", step)
 
+        if start > len(self):
+            data = self._get_file_data(0)
+            empty_data = {}
+
+            for k, v in data.items():  
+                if isinstance(v, list):
+                    empty_data[k] = []
+                else:
+                    empty_data[k] = torch.empty((0, *v.shape[1:]), dtype=v.dtype, device=v.device)
+            return empty_data
+
         sample_idx = 0
         file_idx = 0
         while sample_idx + self.lengths[file_idx] < start:
@@ -129,7 +140,7 @@ class ThumbnailDataset(Dataset):
             file_idx += 1
         
         all_data = {}
-        while sample_idx < stop:
+        while sample_idx < stop and file_idx < len(self.lengths):
             file_data = self._get_file_data(file_idx)
 
             if sample_idx < start or sample_idx + self.lengths[file_idx] >= stop:

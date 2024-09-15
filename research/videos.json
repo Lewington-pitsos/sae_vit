@@ -40,5 +40,23 @@
             "interpretation": "children",
             "correlation": 0.1946
         }
+    },
+    "mrbeast-recent": {
+        "13881": {
+            "interpretation": "unknown",
+            "correlation": 0.3978
+        },
+        "30299": {
+            "interpretation": "spooky",
+            "correlation": 0.2350
+        },
+        "52368": {
+            "interpretation": "children",
+            "correlation":  0.2335
+        },
+        "21690": {
+            "interpretation": "no images",
+            "correlation": 0.2335
+        },
     }
 }

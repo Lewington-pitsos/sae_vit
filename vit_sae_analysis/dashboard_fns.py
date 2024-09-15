@@ -152,27 +152,44 @@ def print_memory():
     else:
         print("CUDA is not available.")
         
-def save_highest_activating_images(neuron_idx, max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=4):
+def save_highest_activating_images(neuron_idx, max_activating_image_indices, max_activating_image_values, directory, dataset, image_key, threshold=0, min_examples=5):
     assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
     number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
     transform = transforms.ToPILImage()
     for neuron in tqdm(neuron_idx.tolist()):
+        print(f"Saving images for neuron {neuron}")
+        neuron_folder = f"{directory}/{neuron}"
         neuron_dead = True
         to_save = []
         for max_activating_image in range(number_of_max_activating_examples):
             if max_activating_image_values[neuron, max_activating_image].item()>threshold:
                 if neuron_dead:
-                    if not os.path.exists(f"{directory}/{neuron}"):
-                        os.makedirs(f"{directory}/{neuron}")
+                    if not os.path.exists(neuron_folder):
+                        os.makedirs(neuron_folder)
                     neuron_dead = False
                 image = dataset[int(max_activating_image_indices[neuron, max_activating_image].item())][image_key]
-                to_save.append(1)
                 if isinstance(image, torch.Tensor):
                     image = transform(image.transpose(0,2).transpose(1, 2))
-                image.save(f"{directory}/{neuron}/{max_activating_image}_{int(max_activating_image_indices[neuron, max_activating_image].item())}_{max_activating_image_values[neuron, max_activating_image].item():.4g}.png", "PNG")
+                img_path = f"{directory}/{neuron}/{max_activating_image}_{int(max_activating_image_indices[neuron, max_activating_image].item())}_{max_activating_image_values[neuron, max_activating_image].item():.4g}.png"
+                to_save.append(img_path)
+                image.save(img_path, "PNG")
 
-        if len(to_save)<min_examples and os.path.exists(f"{directory}/{neuron}"):
-                shutil.rmtree(f"{directory}/{neuron}")
+        print('n to save', len(to_save))
+        if len(to_save)<min_examples and os.path.exists(neuron_folder):
+            print('deleting', neuron_folder)
+            shutil.rmtree(neuron_folder)
+        elif len(to_save) >= min_examples:
+            grid_width = 3
+            grid_height = 4
+            grid_image = Image.new('RGB', (image.width * grid_width, image.height * grid_height))
+            for idx, img_path in enumerate(to_save):
+                img = Image.open(img_path)
+                x = idx % grid_width * image.width
+                y = idx // grid_width * image.height
+                grid_image.paste(img, (x, y))
+                os.remove(img_path)  # Delete the individual image file
+            grid_image.save(f"{neuron_folder}/grid.png")
+            print('Grid image saved:', f"{neuron_folder}/grid.png")
 
 
 def get_new_top_k(first_values, first_indices, second_values, second_indices, k):
@@ -216,6 +233,9 @@ def get_feature_data(
     '''
     torch.cuda.empty_cache()
 
+    if neuron_idx is None:
+        neuron_idx= torch.tensor(list(range(250)))
+
     if not os.path.exists(directory):
         os.makedirs(directory)
     if not os.path.exists(directory + '/raw'):
@@ -243,7 +263,7 @@ def get_feature_data(
                 print('All of the images in the dataset have been processed!')
                 break
 
-            if images.numel() == 0:
+            if (isinstance(images, torch.Tensor) and images.numel() == 0) or len(images) == 0:
                 print('breaking as no more images are left')
                 break
             
@@ -256,7 +276,7 @@ def get_feature_data(
             torch.save(sae_activations, f'{directory}/raw/sae_activations_{number_of_images_processed}.pt')
 
             # Convert the images list to a torch tensor
-            values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 1) # sizes [sae_idx, images] is the size of this matrix correct?
+            values, indices = topk(sae_activations, k = min(number_of_max_activating_images, sae_activations.shape[1]), dim = 1) # sizes [sae_idx, images] is the size of this matrix correct?
             indices += number_of_images_processed
             
             max_activating_image_values, max_activating_image_indices = get_new_top_k(max_activating_image_values, max_activating_image_indices, values, indices, number_of_max_activating_images)
