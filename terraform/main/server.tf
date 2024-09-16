@@ -38,6 +38,6 @@ resource "aws_instance" "sae_vit" {
   }
 
   root_block_device {
-    volume_size = 400
+    volume_size = 1400
   }
 }
